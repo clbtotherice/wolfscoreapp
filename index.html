@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <link rel="manifest" href='data:application/manifest+json,{"name":"Wolf Cash Tracker","short_name":"Wolf","start_url":"./","scope":"./","display":"standalone","background_color":"#090b0d","theme_color":"#090b0d"}'>
   <title>Wolf Cash Tracker</title>
   <style>
     :root {
@@ -745,7 +746,55 @@
   </dialog>
 
   <script>
+    (function registerInlineOfflineWorker() {
+      if (!("serviceWorker" in navigator) || location.protocol === "file:") return;
+
+      const cacheName = "wolf-golf-single-file-v1";
+      const workerCode = `
+        const CACHE_NAME = "${cacheName}";
+        const APP_SHELL = ["./", self.registration.scope];
+
+        self.addEventListener("install", (event) => {
+          self.skipWaiting();
+          event.waitUntil(
+            caches.open(CACHE_NAME)
+              .then((cache) => cache.addAll(APP_SHELL))
+              .catch(() => undefined)
+          );
+        });
+
+        self.addEventListener("activate", (event) => {
+          event.waitUntil(self.clients.claim());
+        });
+
+        self.addEventListener("fetch", (event) => {
+          if (event.request.method !== "GET") return;
+          event.respondWith(
+            fetch(event.request)
+              .then((response) => {
+                const copy = response.clone();
+                caches.open(CACHE_NAME)
+                  .then((cache) => cache.put(event.request, copy))
+                  .catch(() => undefined);
+                return response;
+              })
+              .catch(() => caches.match(event.request)
+                .then((cached) => cached || caches.match("./") || caches.match(self.registration.scope)))
+          );
+        });
+      `;
+
+      try {
+        const workerUrl = URL.createObjectURL(new Blob([workerCode], { type: "text/javascript" }));
+        navigator.serviceWorker.register(workerUrl).catch(() => undefined);
+        setTimeout(() => URL.revokeObjectURL(workerUrl), 30000);
+      } catch {
+        // Offline support is a progressive enhancement; gameplay must continue if registration is blocked.
+      }
+    })();
+
     const STORAGE_KEY = "current_wolf_match";
+    let memoryStateBackup = null;
     const greenieHoles = [2, 6, 9, 12, 14];
     const betTypes = [
       { id: "regular", label: "Regular" },
@@ -788,6 +837,32 @@
       return "p_" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
     }
 
+    function safeStorageSet(key, value) {
+      memoryStateBackup = value;
+      try {
+        localStorage.setItem(key, value);
+      } catch {
+        // Keep gameplay responsive when offline/private storage blocks persistence.
+      }
+    }
+
+    function safeStorageGet(key) {
+      try {
+        return localStorage.getItem(key) || memoryStateBackup;
+      } catch {
+        return memoryStateBackup;
+      }
+    }
+
+    function safeStorageRemove(key) {
+      memoryStateBackup = null;
+      try {
+        localStorage.removeItem(key);
+      } catch {
+        // Ignore storage restrictions; in-memory state is already cleared.
+      }
+    }
+
     function saveState() {
       if (state) {
         state.currentHoleDraft = {
@@ -796,13 +871,13 @@
           scores: { ...currentHole.scores },
           greenieWinnerId: currentHole.greenieWinnerId || ""
         };
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        safeStorageSet(STORAGE_KEY, JSON.stringify(state));
       }
     }
 
     function loadState() {
       try {
-        const raw = localStorage.getItem(STORAGE_KEY);
+        const raw = safeStorageGet(STORAGE_KEY);
         return raw ? JSON.parse(raw) : null;
       } catch {
         return null;
@@ -1411,7 +1486,7 @@
 
     function resetApp() {
       if (!confirm("Reset and clear this Wolf match?")) return;
-      localStorage.removeItem(STORAGE_KEY);
+      safeStorageRemove(STORAGE_KEY);
       state = null;
       currentHole = freshHoleDraft();
       resetSetupControls();
