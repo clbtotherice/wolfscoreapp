@@ -114,6 +114,15 @@
       border: 1px solid var(--line);
     }
 
+    .top-action {
+      min-width: 76px;
+      min-height: 50px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      font-size: 14px;
+      font-weight: 900;
+    }
+
     .section {
       margin: 14px 0;
     }
@@ -372,6 +381,67 @@
       margin: 10px 0;
     }
 
+    .scorecard-view {
+      min-height: 100vh;
+    }
+
+    .scorecard-shell {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .scorecard-table {
+      width: max-content;
+      min-width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-size: 14px;
+    }
+
+    .scorecard-table th,
+    .scorecard-table td {
+      min-width: 42px;
+      height: 44px;
+      padding: 7px 8px;
+      border: 1px solid var(--line);
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .scorecard-table th {
+      background: #222a30;
+      color: var(--gold);
+      font-weight: 950;
+    }
+
+    .scorecard-table th:first-child,
+    .scorecard-table td:first-child {
+      position: sticky;
+      left: 0;
+      z-index: 1;
+      min-width: 132px;
+      text-align: left;
+      background: #101418;
+      color: var(--text);
+      font-weight: 900;
+    }
+
+    .scorecard-table thead th:first-child {
+      z-index: 2;
+      background: #222a30;
+      color: var(--gold);
+    }
+
+    .scorecard-table .sum-col {
+      min-width: 56px;
+      background: #182028;
+      font-weight: 950;
+    }
+
     dialog {
       width: min(94vw, 680px);
       max-height: 88vh;
@@ -549,6 +619,7 @@
           <span id="gameSubhead"></span>
         </div>
         <div class="icon-row">
+          <button id="scorecardBtn" class="top-action" type="button">Scores</button>
           <button id="historyBtn" class="icon-btn" type="button" title="Edit past holes">↶</button>
           <button id="rosterBtn" class="icon-btn" type="button" title="Manage roster">☷</button>
           <button id="settingsBtn" class="icon-btn" type="button" title="Settings">⚙</button>
@@ -585,6 +656,29 @@
 
       <p id="gameMessage" class="message"></p>
       <button id="submitBtn" class="primary" type="button">Submit Hole</button>
+    </section>
+
+    <section id="scorecardView" class="scorecard-view hidden">
+      <div class="topbar">
+        <div class="brand">
+          <strong>Scores</strong>
+          <span>18-hole scorecard</span>
+        </div>
+      </div>
+
+      <button id="backToScoringTopBtn" class="primary" type="button">Back to Scoring</button>
+
+      <div class="section">
+        <h2>Scorecard</h2>
+        <div class="scorecard-shell">
+          <table class="scorecard-table">
+            <thead id="scorecardHead"></thead>
+            <tbody id="scorecardBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <button id="backToScoringBottomBtn" class="primary" type="button">Back to Scoring</button>
     </section>
   </main>
 
@@ -879,6 +973,7 @@
     function showSetup() {
       $("setupView").classList.remove("hidden");
       $("gameView").classList.add("hidden");
+      $("scorecardView").classList.add("hidden");
       $("ledger").classList.add("hidden");
       renderSetup();
     }
@@ -896,9 +991,19 @@
 
     function showGame() {
       $("setupView").classList.add("hidden");
+      $("scorecardView").classList.add("hidden");
       $("gameView").classList.remove("hidden");
       $("ledger").classList.remove("hidden");
       renderGame();
+    }
+
+    function showScorecard() {
+      $("setupView").classList.add("hidden");
+      $("gameView").classList.add("hidden");
+      $("ledger").classList.add("hidden");
+      $("scorecardView").classList.remove("hidden");
+      renderScorecard();
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
 
     function renderSetup() {
@@ -995,6 +1100,49 @@
         `<button type="button" class="${draft.greenieWinnerId === p.id ? "selected" : ""}" data-greenie="${p.id}">${escapeHtml(p.name)}</button>`
       ).join("");
       $(containerId).innerHTML = `<button type="button" class="${nobodySelected ? "selected" : ""}" data-greenie="">Nobody</button>` + playerButtons;
+    }
+
+    function renderScorecard() {
+      recalculateBalances();
+      const players = activePlayers();
+      const frontNine = Array.from({ length: 9 }, (_, index) => index + 1);
+      const backNine = Array.from({ length: 9 }, (_, index) => index + 10);
+      $("scorecardHead").innerHTML = `
+        <tr>
+          <th>Player Name</th>
+          ${frontNine.map((hole) => `<th>${hole}</th>`).join("")}
+          <th class="sum-col">Out</th>
+          ${backNine.map((hole) => `<th>${hole}</th>`).join("")}
+          <th class="sum-col">In</th>
+          <th class="sum-col">Total</th>
+        </tr>`;
+
+      $("scorecardBody").innerHTML = players.map((player) => {
+        const frontScores = frontNine.map((hole) => scorecardStroke(player.id, hole));
+        const backScores = backNine.map((hole) => scorecardStroke(player.id, hole));
+        const out = sumScores(frontScores);
+        const inTotal = sumScores(backScores);
+        const total = out + inTotal;
+        return `
+          <tr>
+            <td>${escapeHtml(player.name)}</td>
+            ${frontScores.map((score) => `<td>${score === "" ? "" : score}</td>`).join("")}
+            <td class="sum-col">${out || ""}</td>
+            ${backScores.map((score) => `<td>${score === "" ? "" : score}</td>`).join("")}
+            <td class="sum-col">${inTotal || ""}</td>
+            <td class="sum-col">${total || ""}</td>
+          </tr>`;
+      }).join("");
+    }
+
+    function scorecardStroke(playerId, holeNumber) {
+      const hole = state.completedHoles.find((item) => Number(item.number) === Number(holeNumber));
+      if (!hole || !hole.scores || !isValidStroke(hole.scores[playerId])) return "";
+      return normalizeStroke(hole.scores[playerId]);
+    }
+
+    function sumScores(scores) {
+      return scores.reduce((sum, score) => sum + (score === "" ? 0 : Number(score)), 0);
     }
 
     function startGame() {
@@ -1299,6 +1447,9 @@
 
     $("startBtn").addEventListener("click", startGame);
     $("submitBtn").addEventListener("click", submitHole);
+    $("scorecardBtn").addEventListener("click", showScorecard);
+    $("backToScoringTopBtn").addEventListener("click", showGame);
+    $("backToScoringBottomBtn").addEventListener("click", showGame);
     $("rosterBtn").addEventListener("click", () => { renderRoster(); $("rosterModal").showModal(); });
     $("historyBtn").addEventListener("click", () => { renderHistory(); $("historyModal").showModal(); });
     $("settingsBtn").addEventListener("click", () => $("settingsModal").showModal());
