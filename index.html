@@ -319,25 +319,38 @@
       font-weight: 800;
     }
 
-    .score-buttons {
+    .stroke-entry {
       display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
-      gap: 6px;
+      grid-template-columns: 64px minmax(0, 1fr) 64px;
+      gap: 8px;
+      align-items: center;
     }
 
-    .score-buttons button {
-      min-height: 52px;
-      border: 2px solid transparent;
+    .stroke-entry button {
+      min-height: 56px;
+      border: 2px solid var(--line);
       font-weight: 950;
-      font-size: 17px;
+      font-size: 28px;
+      background: var(--panel-2);
     }
 
-    .under { background: #b51922; }
-    .par { background: #555d65; }
-    .over { background: #d16d00; color: #111; }
-    .score-buttons button.selected {
-      border-color: #fff;
-      box-shadow: inset 0 0 0 2px #fff, 0 0 0 3px rgba(255, 255, 255, .18);
+    .stroke-entry input {
+      min-height: 56px;
+      text-align: center;
+      font-size: 24px;
+      font-weight: 950;
+    }
+
+    .greenie-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .greenie-grid button {
+      min-height: 54px;
+      border: 2px solid var(--line);
+      font-weight: 900;
     }
 
     .message {
@@ -412,7 +425,7 @@
 
     .history-card table {
       width: 100%;
-      min-width: 460px;
+      min-width: 560px;
       border-collapse: collapse;
       margin-top: 10px;
       font-size: 14px;
@@ -453,7 +466,7 @@
         margin: 0 auto;
       }
       .choice-grid { grid-template-columns: repeat(2, 1fr); }
-      .score-buttons button { min-height: 58px; }
+      .stroke-entry button, .stroke-entry input { min-height: 58px; }
     }
   </style>
 </head>
@@ -491,6 +504,18 @@
       <div id="skinValueWrap" class="section hidden">
         <h2>Dollar Value Per Skin</h2>
         <input id="skinValue" type="number" inputmode="decimal" min="0" step="0.25" value="1.00">
+      </div>
+
+      <div class="section">
+        <label class="toggle-row">
+          <span>Enable Greenies (TCC)</span>
+          <input id="greeniesToggle" type="checkbox">
+        </label>
+      </div>
+
+      <div id="greenieValueWrap" class="section hidden">
+        <h2>Dollar Value Per Greenie</h2>
+        <input id="greenieValue" type="number" inputmode="decimal" min="0" step="0.25" value="1.00">
       </div>
 
       <div id="sixRuleSetup" class="section hidden">
@@ -537,8 +562,13 @@
       </div>
 
       <div class="section">
-        <h2>Scores vs Par</h2>
+        <h2>Strokes</h2>
         <div id="scoreList" class="score-list"></div>
+      </div>
+
+      <div id="greenieSection" class="section hidden">
+        <h2>Greenie Winner</h2>
+        <div id="greenieButtons" class="greenie-grid"></div>
       </div>
 
       <p id="gameMessage" class="message"></p>
@@ -586,8 +616,12 @@
         <div id="editPartnerButtons" class="partner-grid"></div>
       </div>
       <div class="section">
-        <h3>Scores vs Par</h3>
+        <h3>Strokes</h3>
         <div id="editScoreList" class="score-list"></div>
+      </div>
+      <div id="editGreenieSection" class="section hidden">
+        <h3>Greenie Winner</h3>
+        <div id="editGreenieButtons" class="greenie-grid"></div>
       </div>
       <p id="editMessage" class="message"></p>
       <button id="saveEditBtn" class="primary" type="button">Save Hole Edit</button>
@@ -606,7 +640,7 @@
 
   <script>
     const STORAGE_KEY = "current_wolf_match";
-    const scoreValues = [-2, -1, 0, 1, 2];
+    const greenieHoles = [2, 6, 9, 12, 14];
     const betTypes = [
       { id: "regular", label: "Regular" },
       { id: "lone", label: "Lone Wolf" },
@@ -624,7 +658,7 @@
     const $ = (id) => document.getElementById(id);
 
     function freshHoleDraft() {
-      return { betType: "regular", partnerIds: [], scores: {} };
+      return { betType: "regular", partnerIds: [], scores: {}, greenieWinnerId: "" };
     }
 
     function zeroPayouts(playerIds) {
@@ -653,7 +687,8 @@
         state.currentHoleDraft = {
           betType: currentHole.betType,
           partnerIds: [...currentHole.partnerIds],
-          scores: { ...currentHole.scores }
+          scores: { ...currentHole.scores },
+          greenieWinnerId: currentHole.greenieWinnerId || ""
         };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       }
@@ -697,6 +732,10 @@
       if (playerId === wolfId) return "Wolf";
       if (partnerIds.includes(playerId)) return "Wolf Team";
       return "Hunters";
+    }
+
+    function isGreenieHole(holeNumber) {
+      return greenieHoles.includes(Number(holeNumber));
     }
 
     function calculateWolfPayouts(hole) {
@@ -762,15 +801,34 @@
       return { payouts, result: "Skin: " + playerName(winnerId), winnerId };
     }
 
+    function calculateGreeniePayouts(hole) {
+      const players = hole.activeIds;
+      const payouts = zeroPayouts(players);
+      const winnerId = hole.greenieWinnerId || "";
+      if (!hole.greeniesEnabled || !isGreenieHole(hole.number) || !winnerId) {
+        return { payouts, result: "Greenie none", winnerId: null };
+      }
+
+      const greenieBase = Number(hole.greenieValue) || 1;
+      players.forEach((id) => {
+        payouts[id] = id === winnerId ? greenieBase * (players.length - 1) : -greenieBase;
+      });
+      return { payouts, result: "Greenie: " + playerName(winnerId), winnerId };
+    }
+
     function calculateHole(hole) {
       const wolf = calculateWolfPayouts(hole);
       const skins = calculateSkinsPayouts(hole);
+      const greenie = calculateGreeniePayouts(hole);
+      const sidePayouts = addPayouts(skins.payouts, greenie.payouts);
       return {
-        payouts: addPayouts(wolf.payouts, skins.payouts),
+        payouts: addPayouts(wolf.payouts, sidePayouts),
         wolfPayouts: wolf.payouts,
         skinsPayouts: skins.payouts,
+        greeniePayouts: greenie.payouts,
         result: wolf.result,
         skinsResult: skins.result,
+        greenieResult: greenie.result,
         wolfTeam: wolf.wolfTeam,
         hunters: wolf.hunters
       };
@@ -779,18 +837,26 @@
     function recalculateBalances() {
       state.skinsEnabled = Boolean(state.skinsEnabled);
       state.skinValue = Number(state.skinValue || 1);
+      state.greeniesEnabled = Boolean(state.greeniesEnabled);
+      state.greenieValue = Number(state.greenieValue || 1);
       state.players.forEach((p) => p.balance = 0);
       state.completedHoles.forEach((hole) => {
         hole.skinsEnabled = Boolean(hole.skinsEnabled);
         hole.skinValue = Number(hole.skinValue || state.skinValue || 1);
+        hole.greeniesEnabled = Boolean(hole.greeniesEnabled);
+        hole.greenieValue = Number(hole.greenieValue || state.greenieValue || 1);
+        hole.greenieWinnerId = hole.greenieWinnerId || "";
         hole.wolfPayouts = hole.wolfPayouts || {};
         hole.skinsPayouts = hole.skinsPayouts || {};
+        hole.greeniePayouts = hole.greeniePayouts || {};
         const calc = calculateHole(hole);
         hole.payouts = calc.payouts;
         hole.wolfPayouts = calc.wolfPayouts;
         hole.skinsPayouts = calc.skinsPayouts;
+        hole.greeniePayouts = calc.greeniePayouts;
         hole.result = calc.result;
         hole.skinsResult = calc.skinsResult;
+        hole.greenieResult = calc.greenieResult;
         Object.entries(calc.payouts).forEach(([id, amount]) => {
           const player = state.players.find((p) => p.id === id);
           if (player) player.balance += amount;
@@ -811,6 +877,8 @@
       $("baseValue").value = "1.00";
       $("skinsToggle").checked = false;
       $("skinValue").value = "1.00";
+      $("greeniesToggle").checked = false;
+      $("greenieValue").value = "1.00";
       $("setupMessage").textContent = "";
     }
 
@@ -827,6 +895,7 @@
       ).join("");
       $("sixRuleSetup").classList.toggle("hidden", setupCount !== 6);
       $("skinValueWrap").classList.toggle("hidden", !$("skinsToggle").checked);
+      $("greenieValueWrap").classList.toggle("hidden", !$("greeniesToggle").checked);
       document.querySelectorAll("[data-six]").forEach((btn) => btn.classList.toggle("selected", btn.dataset.six === setupSixOption));
 
       const existing = Array.from($("nameInputs").querySelectorAll("input")).map((input) => input.value);
@@ -859,9 +928,12 @@
       const wolfId = currentWolfId(players);
       const partnerNeed = requiredPartnerCount(players.length, currentHole.betType, state.sixOption);
       currentHole.partnerIds = currentHole.partnerIds.filter((id) => players.some((p) => p.id === id) && id !== wolfId).slice(0, partnerNeed);
+      if (!isGreenieHole(state.currentHole) || !state.greeniesEnabled) currentHole.greenieWinnerId = "";
+      if (currentHole.greenieWinnerId && !players.some((p) => p.id === currentHole.greenieWinnerId)) currentHole.greenieWinnerId = "";
 
       const skinsText = state.skinsEnabled ? " · skins $" + Number(state.skinValue || 1).toFixed(2) : "";
-      $("gameSubhead").textContent = players.length + " active · Wolf $" + Number(state.baseValue).toFixed(2) + skinsText;
+      const greenieText = state.greeniesEnabled ? " · greenies $" + Number(state.greenieValue || 1).toFixed(2) : "";
+      $("gameSubhead").textContent = players.length + " active · Wolf $" + Number(state.baseValue).toFixed(2) + skinsText + greenieText;
       $("holeTitle").textContent = "Hole " + state.currentHole;
       $("wolfTag").textContent = "Wolf: " + playerName(wolfId);
       renderLedger();
@@ -870,6 +942,9 @@
       $("partnersSection").classList.toggle("hidden", partnerNeed === 0);
       $("partnersTitle").textContent = partnerNeed === 1 ? "Choose 1 Partner" : "Choose 2 Partners";
       renderScoreList("scoreList", currentHole, players, wolfId);
+      const showGreenie = Boolean(state.greeniesEnabled && isGreenieHole(state.currentHole));
+      $("greenieSection").classList.toggle("hidden", !showGreenie);
+      if (showGreenie) renderGreenieButtons("greenieButtons", currentHole, players);
     }
 
     function renderBetButtons(containerId, draft) {
@@ -888,20 +963,26 @@
 
     function renderScoreList(containerId, draft, players, wolfId) {
       $(containerId).innerHTML = players.map((p) => {
-        const selected = draft.scores[p.id];
+        const selected = isValidStroke(draft.scores[p.id]) ? Number(draft.scores[p.id]) : "";
         const label = teamLabel(p.id, wolfId, draft.partnerIds);
         return `
           <div class="score-card">
             <div class="score-name"><span>${escapeHtml(p.name)}</span><span class="team-label">${label}</span></div>
-            <div class="score-buttons" data-score-player="${p.id}">
-              ${scoreValues.map((score) => {
-                const cls = score < 0 ? "under" : score === 0 ? "par" : "over";
-                const text = score > 0 ? "+" + score : String(score);
-                return `<button type="button" class="${cls} ${Number(selected) === score ? "selected" : ""}" data-score="${score}">${text}</button>`;
-              }).join("")}
+            <div class="stroke-entry" data-stroke-player="${p.id}">
+              <button type="button" data-stroke-adjust="-1">-</button>
+              <input type="number" inputmode="numeric" min="1" step="1" placeholder="" value="${selected}">
+              <button type="button" data-stroke-adjust="1">+</button>
             </div>
           </div>`;
       }).join("");
+    }
+
+    function renderGreenieButtons(containerId, draft, players) {
+      const nobodySelected = !draft.greenieWinnerId;
+      const playerButtons = players.map((p) =>
+        `<button type="button" class="${draft.greenieWinnerId === p.id ? "selected" : ""}" data-greenie="${p.id}">${escapeHtml(p.name)}</button>`
+      ).join("");
+      $(containerId).innerHTML = `<button type="button" class="${nobodySelected ? "selected" : ""}" data-greenie="">Nobody</button>` + playerButtons;
     }
 
     function startGame() {
@@ -910,6 +991,8 @@
       const base = Math.max(0, Number($("baseValue").value) || 1);
       const skinsEnabled = $("skinsToggle").checked;
       const skinValue = Math.max(0, Number($("skinValue").value) || 1);
+      const greeniesEnabled = $("greeniesToggle").checked;
+      const greenieValue = Math.max(0, Number($("greenieValue").value) || 1);
       const players = names.map((name) => ({ id: uid(), name, balance: 0, active: true }));
       const shuffled = [...players].sort(() => Math.random() - 0.5);
       state = {
@@ -917,6 +1000,8 @@
         baseValue: base,
         skinsEnabled,
         skinValue,
+        greeniesEnabled,
+        greenieValue,
         sixOption: setupSixOption,
         players,
         teeOrder: shuffled.map((p) => p.id),
@@ -941,9 +1026,9 @@
         $("gameMessage").textContent = partnerNeed ? "Choose the Wolf team partner(s)." : "";
         return;
       }
-      const missing = players.some((p) => currentHole.scores[p.id] === undefined);
+      const missing = players.some((p) => !isValidStroke(currentHole.scores[p.id]));
       if (missing) {
-        $("gameMessage").textContent = "Pick a score for every active player.";
+        $("gameMessage").textContent = "Enter strokes for every active player.";
         return;
       }
 
@@ -954,27 +1039,34 @@
         wolfId,
         betType: currentHole.betType,
         partnerIds: [...currentHole.partnerIds],
-        scores: Object.fromEntries(players.map((p) => [p.id, Number(currentHole.scores[p.id])])),
+        scores: Object.fromEntries(players.map((p) => [p.id, normalizeStroke(currentHole.scores[p.id])])),
+        greenieWinnerId: isGreenieHole(state.currentHole) && state.greeniesEnabled ? (currentHole.greenieWinnerId || "") : "",
         sixOption: state.sixOption,
         skinsEnabled: Boolean(state.skinsEnabled),
         skinValue: Number(state.skinValue || 1),
+        greeniesEnabled: Boolean(state.greeniesEnabled),
+        greenieValue: Number(state.greenieValue || 1),
         payouts: {},
         wolfPayouts: {},
         skinsPayouts: {},
+        greeniePayouts: {},
         result: ""
       };
       const calc = calculateHole(hole);
       hole.payouts = calc.payouts;
       hole.wolfPayouts = calc.wolfPayouts;
       hole.skinsPayouts = calc.skinsPayouts;
+      hole.greeniePayouts = calc.greeniePayouts;
       hole.result = calc.result;
       hole.skinsResult = calc.skinsResult;
+      hole.greenieResult = calc.greenieResult;
       state.completedHoles.push(hole);
       state.currentHole += 1;
       recalculateBalances();
       currentHole = freshHoleDraft();
       saveState();
-      $("gameMessage").textContent = hole.result + (state.skinsEnabled ? " · " + hole.skinsResult : "") + " on Hole " + hole.number + ".";
+      const greenieMessage = state.greeniesEnabled && isGreenieHole(hole.number) ? " · " + hole.greenieResult : "";
+      $("gameMessage").textContent = hole.result + (state.skinsEnabled ? " · " + hole.skinsResult : "") + greenieMessage + " on Hole " + hole.number + ".";
       renderGame();
     }
 
@@ -1037,18 +1129,20 @@
         const bet = betTypes.find((b) => b.id === hole.betType);
         const wolfPayouts = hole.wolfPayouts || zeroPayouts(hole.activeIds);
         const skinsPayouts = hole.skinsPayouts || zeroPayouts(hole.activeIds);
+        const greeniePayouts = hole.greeniePayouts || zeroPayouts(hole.activeIds);
         const rows = hole.activeIds.map((id) => {
-          const total = (Number(wolfPayouts[id]) || 0) + (Number(skinsPayouts[id]) || 0);
+          const total = (Number(wolfPayouts[id]) || 0) + (Number(skinsPayouts[id]) || 0) + (Number(greeniePayouts[id]) || 0);
           return `
             <tr>
               <td>${escapeHtml(playerName(id))}</td>
               <td>${scoreText(hole.scores[id])}</td>
               <td class="${moneyClass(wolfPayouts[id])}">${money(wolfPayouts[id])}</td>
               <td class="${moneyClass(skinsPayouts[id])}">${money(skinsPayouts[id])}</td>
+              <td class="${moneyClass(greeniePayouts[id])}">${money(greeniePayouts[id])}</td>
               <td class="${moneyClass(total)}">${money(total)}</td>
             </tr>`;
         }).join("");
-        const summary = hole.result + " / " + (hole.skinsResult || "Skins off") + " · " + bet.label;
+        const summary = hole.result + " / " + (hole.skinsResult || "Skins off") + " / " + (hole.greenieResult || "Greenie none") + " · " + bet.label;
         return `
           <div class="history-card">
             <div class="history-row">
@@ -1062,9 +1156,10 @@
               <thead>
                 <tr>
                   <th>Player</th>
-                  <th>Score</th>
+                  <th>Strokes</th>
                   <th>Wolf Bet</th>
                   <th>Skins Bet</th>
+                  <th>Greenie Bet</th>
                   <th>Total</th>
                 </tr>
               </thead>
@@ -1081,7 +1176,8 @@
       editDraft = {
         betType: hole.betType,
         partnerIds: [...hole.partnerIds],
-        scores: { ...hole.scores }
+        scores: { ...hole.scores },
+        greenieWinnerId: hole.greenieWinnerId || ""
       };
       $("editTitle").textContent = "Edit Hole " + hole.number;
       renderEditHole();
@@ -1099,6 +1195,12 @@
       $("editPartnersSection").classList.toggle("hidden", partnerNeed === 0);
       $("editPartnersTitle").textContent = partnerNeed === 1 ? "Choose 1 Partner" : "Choose 2 Partners";
       renderScoreList("editScoreList", editDraft, players, hole.wolfId);
+      const showGreenie = Boolean(hole.greeniesEnabled && isGreenieHole(hole.number));
+      $("editGreenieSection").classList.toggle("hidden", !showGreenie);
+      if (showGreenie) {
+        if (editDraft.greenieWinnerId && !hole.activeIds.includes(editDraft.greenieWinnerId)) editDraft.greenieWinnerId = "";
+        renderGreenieButtons("editGreenieButtons", editDraft, players);
+      }
     }
 
     function saveEditHole() {
@@ -1109,14 +1211,15 @@
         $("editMessage").textContent = "Choose the Wolf team partner(s).";
         return;
       }
-      const missing = hole.activeIds.some((id) => editDraft.scores[id] === undefined);
+      const missing = hole.activeIds.some((id) => !isValidStroke(editDraft.scores[id]));
       if (missing) {
-        $("editMessage").textContent = "Pick a score for every player on that hole.";
+        $("editMessage").textContent = "Enter strokes for every player on that hole.";
         return;
       }
       hole.betType = editDraft.betType;
       hole.partnerIds = [...editDraft.partnerIds];
-      hole.scores = Object.fromEntries(hole.activeIds.map((id) => [id, Number(editDraft.scores[id])]));
+      hole.scores = Object.fromEntries(hole.activeIds.map((id) => [id, normalizeStroke(editDraft.scores[id])]));
+      hole.greenieWinnerId = hole.greeniesEnabled && isGreenieHole(hole.number) ? (editDraft.greenieWinnerId || "") : "";
       recalculateBalances();
       saveState();
       $("editModal").close();
@@ -1124,8 +1227,22 @@
     }
 
     function scoreText(score) {
-      const value = Number(score);
-      return value > 0 ? "+" + value : String(value);
+      return isValidStroke(score) ? String(normalizeStroke(score)) : "";
+    }
+
+    function normalizeStroke(value) {
+      return Math.max(1, Math.floor(Number(value)));
+    }
+
+    function isValidStroke(value) {
+      if (value === undefined || value === "") return false;
+      return Number.isFinite(Number(value)) && Number(value) > 0;
+    }
+
+    function adjustStroke(value, delta) {
+      if (!isValidStroke(value)) return delta > 0 ? 1 : "";
+      const next = normalizeStroke(value) + delta;
+      return next > 0 ? next : "";
     }
 
     function moneyClass(value) {
@@ -1166,6 +1283,7 @@
     });
 
     $("skinsToggle").addEventListener("change", renderSetup);
+    $("greeniesToggle").addEventListener("change", renderSetup);
 
     $("startBtn").addEventListener("click", startGame);
     $("submitBtn").addEventListener("click", submitHole);
@@ -1210,10 +1328,24 @@
     });
 
     $("scoreList").addEventListener("click", (event) => {
-      const score = event.target.dataset.score;
-      if (score === undefined) return;
-      const playerId = event.target.closest("[data-score-player]").dataset.scorePlayer;
-      currentHole.scores[playerId] = Number(score);
+      const adjust = event.target.dataset.strokeAdjust;
+      if (adjust === undefined) return;
+      const playerId = event.target.closest("[data-stroke-player]").dataset.strokePlayer;
+      currentHole.scores[playerId] = adjustStroke(currentHole.scores[playerId], Number(adjust));
+      saveState();
+      renderGame();
+    });
+
+    $("scoreList").addEventListener("input", (event) => {
+      const row = event.target.closest("[data-stroke-player]");
+      if (!row) return;
+      currentHole.scores[row.dataset.strokePlayer] = event.target.value;
+      saveState();
+    });
+
+    $("greenieButtons").addEventListener("click", (event) => {
+      if (event.target.dataset.greenie === undefined) return;
+      currentHole.greenieWinnerId = event.target.dataset.greenie;
       saveState();
       renderGame();
     });
@@ -1241,10 +1373,22 @@
     });
 
     $("editScoreList").addEventListener("click", (event) => {
-      const score = event.target.dataset.score;
-      if (score === undefined) return;
-      const playerId = event.target.closest("[data-score-player]").dataset.scorePlayer;
-      editDraft.scores[playerId] = Number(score);
+      const adjust = event.target.dataset.strokeAdjust;
+      if (adjust === undefined) return;
+      const playerId = event.target.closest("[data-stroke-player]").dataset.strokePlayer;
+      editDraft.scores[playerId] = adjustStroke(editDraft.scores[playerId], Number(adjust));
+      renderEditHole();
+    });
+
+    $("editScoreList").addEventListener("input", (event) => {
+      const row = event.target.closest("[data-stroke-player]");
+      if (!row) return;
+      editDraft.scores[row.dataset.strokePlayer] = event.target.value;
+    });
+
+    $("editGreenieButtons").addEventListener("click", (event) => {
+      if (event.target.dataset.greenie === undefined) return;
+      editDraft.greenieWinnerId = event.target.dataset.greenie;
       renderEditHole();
     });
 
