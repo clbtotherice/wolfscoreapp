@@ -1,0 +1,1262 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Wolf Cash Tracker</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #090b0d;
+      --panel: #14181c;
+      --panel-2: #1c2227;
+      --line: #33404a;
+      --text: #f7fbff;
+      --muted: #aebbc5;
+      --green: #19c36b;
+      --red: #ff4b55;
+      --orange: #ff9d24;
+      --gold: #f5d34f;
+      --blue: #4aa3ff;
+      --shadow: 0 16px 44px rgba(0, 0, 0, .38);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0;
+    }
+
+    button, input {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      border-radius: 8px;
+      color: var(--text);
+      background: var(--panel-2);
+      min-height: 48px;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    button:active { transform: translateY(1px); }
+
+    input {
+      width: 100%;
+      min-height: 54px;
+      border: 2px solid var(--line);
+      border-radius: 8px;
+      padding: 0 14px;
+      background: #07090b;
+      color: var(--text);
+      font-size: 18px;
+    }
+
+    .app {
+      min-height: 100vh;
+      padding: 14px;
+      padding-bottom: calc(92px + env(safe-area-inset-bottom));
+    }
+
+    .hidden { display: none !important; }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .brand {
+      display: grid;
+      gap: 2px;
+    }
+
+    .brand strong {
+      font-size: 22px;
+      line-height: 1.05;
+    }
+
+    .brand span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .icon-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .icon-btn {
+      width: 50px;
+      min-width: 50px;
+      font-size: 21px;
+      border: 1px solid var(--line);
+    }
+
+    .section {
+      margin: 14px 0;
+    }
+
+    .section h2, .section h3 {
+      margin: 0 0 10px;
+      font-size: 16px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    .setup {
+      max-width: 680px;
+      margin: 0 auto;
+    }
+
+    .segmented {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .segmented button, .choice-grid button {
+      min-height: 58px;
+      border: 2px solid var(--line);
+      font-weight: 800;
+      font-size: 18px;
+    }
+
+    button.selected {
+      border-color: var(--gold);
+      box-shadow: inset 0 0 0 2px var(--gold), 0 0 0 3px rgba(245, 211, 79, .18);
+      background: #2c2714;
+    }
+
+    .names {
+      display: grid;
+      gap: 10px;
+    }
+
+    .choice-grid {
+      display: grid;
+      gap: 8px;
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 58px;
+      border: 2px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+      background: var(--panel);
+      font-weight: 900;
+      font-size: 18px;
+    }
+
+    .toggle-row input {
+      width: 30px;
+      min-height: 30px;
+      accent-color: var(--green);
+    }
+
+    .primary {
+      width: 100%;
+      min-height: 64px;
+      background: var(--green);
+      color: #031007;
+      font-size: 20px;
+      font-weight: 900;
+      box-shadow: var(--shadow);
+    }
+
+    .danger {
+      background: #401217;
+      color: #fff;
+      border: 1px solid #a32b35;
+    }
+
+    .ghost {
+      background: transparent;
+      border: 1px solid var(--line);
+    }
+
+    .ledger {
+      position: fixed;
+      z-index: 20;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: 9px 10px calc(9px + env(safe-area-inset-bottom));
+      background: rgba(9, 11, 13, .96);
+      border-top: 2px solid var(--line);
+      backdrop-filter: blur(10px);
+    }
+
+    .ledger-scroll {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+    }
+
+    .ledger-pill {
+      flex: 0 0 auto;
+      min-width: 112px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px 10px;
+      background: var(--panel);
+    }
+
+    .ledger-pill b {
+      display: block;
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 14px;
+    }
+
+    .ledger-pill span {
+      font-weight: 900;
+      font-size: 19px;
+    }
+
+    .pos { color: var(--green); }
+    .neg { color: var(--red); }
+    .zero { color: var(--muted); }
+
+    .score-head {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .hole-title {
+      font-size: 30px;
+      font-weight: 950;
+      line-height: 1;
+    }
+
+    .wolf-tag {
+      display: inline-flex;
+      margin-top: 7px;
+      padding: 7px 10px;
+      border-radius: 8px;
+      background: #332909;
+      color: var(--gold);
+      font-weight: 900;
+      font-size: 30px;
+      line-height: 1.05;
+    }
+
+    .status-line {
+      color: var(--muted);
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .bet-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .bet-grid button {
+      border: 2px solid var(--line);
+      font-weight: 900;
+      min-height: 58px;
+    }
+
+    .partner-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .partner-grid button {
+      border: 2px solid var(--line);
+      font-weight: 800;
+      min-height: 54px;
+    }
+
+    .score-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .score-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: var(--panel);
+    }
+
+    .score-name {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 9px;
+      font-weight: 900;
+      font-size: 18px;
+    }
+
+    .team-label {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .score-buttons {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 6px;
+    }
+
+    .score-buttons button {
+      min-height: 52px;
+      border: 2px solid transparent;
+      font-weight: 950;
+      font-size: 17px;
+    }
+
+    .under { background: #b51922; }
+    .par { background: #555d65; }
+    .over { background: #d16d00; color: #111; }
+    .score-buttons button.selected {
+      border-color: #fff;
+      box-shadow: inset 0 0 0 2px #fff, 0 0 0 3px rgba(255, 255, 255, .18);
+    }
+
+    .message {
+      min-height: 25px;
+      color: var(--gold);
+      font-weight: 800;
+      margin: 10px 0;
+    }
+
+    dialog {
+      width: min(94vw, 680px);
+      max-height: 88vh;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      color: var(--text);
+      padding: 0;
+      box-shadow: var(--shadow);
+    }
+
+    dialog::backdrop {
+      background: rgba(0, 0, 0, .72);
+    }
+
+    .modal-head {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .modal-head h2 {
+      margin: 0;
+      font-size: 20px;
+    }
+
+    .modal-body {
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .roster-row, .history-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: #101418;
+    }
+
+    .roster-row small, .history-row small {
+      color: var(--muted);
+      display: block;
+      margin-top: 2px;
+    }
+
+    .history-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: #101418;
+      overflow-x: auto;
+    }
+
+    .history-card table {
+      width: 100%;
+      min-width: 460px;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+
+    .history-card th,
+    .history-card td {
+      padding: 8px 6px;
+      border-bottom: 1px solid var(--line);
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .history-card th:first-child,
+    .history-card td:first-child {
+      text-align: left;
+    }
+
+    .history-card tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .mini {
+      min-height: 42px;
+      padding: 0 12px;
+      font-weight: 800;
+    }
+
+    .modal-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    @media (min-width: 760px) {
+      .app {
+        max-width: 760px;
+        margin: 0 auto;
+      }
+      .choice-grid { grid-template-columns: repeat(2, 1fr); }
+      .score-buttons button { min-height: 58px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section id="setupView" class="setup">
+      <div class="topbar">
+        <div class="brand">
+          <strong>Wolf Cash Tracker</strong>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Players</h2>
+        <div id="countButtons" class="segmented"></div>
+      </div>
+
+      <div class="section">
+        <h2>Names</h2>
+        <div id="nameInputs" class="names"></div>
+      </div>
+
+      <div class="section">
+        <h2>Dollar Value Per Point For Wolf</h2>
+        <input id="baseValue" type="number" inputmode="decimal" min="0" step="0.25" value="1.00">
+      </div>
+
+      <div class="section">
+        <label class="toggle-row">
+          <span>Enable Skins Game</span>
+          <input id="skinsToggle" type="checkbox">
+        </label>
+      </div>
+
+      <div id="skinValueWrap" class="section hidden">
+        <h2>Dollar Value Per Skin</h2>
+        <input id="skinValue" type="number" inputmode="decimal" min="0" step="0.25" value="1.00">
+      </div>
+
+      <div id="sixRuleSetup" class="section hidden">
+        <h2>6-Player Regular Bets</h2>
+        <div class="choice-grid">
+          <button type="button" data-six="A">Option A<br>3 vs 3</button>
+          <button type="button" data-six="B">Option B<br>2 vs 4</button>
+        </div>
+      </div>
+
+      <button id="startBtn" class="primary" type="button">Shuffle &amp; Start Game</button>
+      <p id="setupMessage" class="message"></p>
+    </section>
+
+    <section id="gameView" class="hidden">
+      <div class="topbar">
+        <div class="brand">
+          <strong>Wolf</strong>
+          <span id="gameSubhead"></span>
+        </div>
+        <div class="icon-row">
+          <button id="historyBtn" class="icon-btn" type="button" title="Edit past holes">↶</button>
+          <button id="rosterBtn" class="icon-btn" type="button" title="Manage roster">☷</button>
+          <button id="settingsBtn" class="icon-btn" type="button" title="Settings">⚙</button>
+        </div>
+      </div>
+
+      <div class="score-head">
+        <div>
+          <div id="holeTitle" class="hole-title"></div>
+          <div id="wolfTag" class="wolf-tag"></div>
+        </div>
+        <div class="status-line" id="zeroStatus"></div>
+      </div>
+
+      <div class="section">
+        <h2>Bet Type</h2>
+        <div id="betButtons" class="bet-grid"></div>
+      </div>
+
+      <div id="partnersSection" class="section">
+        <h2 id="partnersTitle">Wolf Team</h2>
+        <div id="partnerButtons" class="partner-grid"></div>
+      </div>
+
+      <div class="section">
+        <h2>Scores vs Par</h2>
+        <div id="scoreList" class="score-list"></div>
+      </div>
+
+      <p id="gameMessage" class="message"></p>
+      <button id="submitBtn" class="primary" type="button">Submit Hole</button>
+    </section>
+  </main>
+
+  <aside id="ledger" class="ledger hidden">
+    <div id="ledgerScroll" class="ledger-scroll"></div>
+  </aside>
+
+  <dialog id="rosterModal">
+    <div class="modal-head">
+      <h2>Manage Roster</h2>
+      <button class="mini ghost" type="button" data-close="rosterModal">Close</button>
+    </div>
+    <div class="modal-body">
+      <div id="rosterList"></div>
+      <input id="newPlayerName" type="text" placeholder="New player name">
+      <button id="addPlayerBtn" class="primary" type="button">Add Player</button>
+      <p id="rosterMessage" class="message"></p>
+    </div>
+  </dialog>
+
+  <dialog id="historyModal">
+    <div class="modal-head">
+      <h2>Completed Holes</h2>
+      <button class="mini ghost" type="button" data-close="historyModal">Close</button>
+    </div>
+    <div id="historyList" class="modal-body"></div>
+  </dialog>
+
+  <dialog id="editModal">
+    <div class="modal-head">
+      <h2 id="editTitle">Edit Hole</h2>
+      <button class="mini ghost" type="button" data-close="editModal">Close</button>
+    </div>
+    <div class="modal-body">
+      <div class="section">
+        <h3>Bet Type</h3>
+        <div id="editBetButtons" class="bet-grid"></div>
+      </div>
+      <div id="editPartnersSection" class="section">
+        <h3 id="editPartnersTitle">Wolf Team</h3>
+        <div id="editPartnerButtons" class="partner-grid"></div>
+      </div>
+      <div class="section">
+        <h3>Scores vs Par</h3>
+        <div id="editScoreList" class="score-list"></div>
+      </div>
+      <p id="editMessage" class="message"></p>
+      <button id="saveEditBtn" class="primary" type="button">Save Hole Edit</button>
+    </div>
+  </dialog>
+
+  <dialog id="settingsModal">
+    <div class="modal-head">
+      <h2>Settings</h2>
+      <button class="mini ghost" type="button" data-close="settingsModal">Close</button>
+    </div>
+    <div class="modal-body">
+      <button id="resetBtn" class="danger" type="button">Reset &amp; Clear App</button>
+    </div>
+  </dialog>
+
+  <script>
+    const STORAGE_KEY = "current_wolf_match";
+    const scoreValues = [-2, -1, 0, 1, 2];
+    const betTypes = [
+      { id: "regular", label: "Regular" },
+      { id: "lone", label: "Lone Wolf" },
+      { id: "blind", label: "Blind Wolf 2x" },
+      { id: "double", label: "Double Blind 3x" }
+    ];
+
+    let setupCount = 4;
+    let setupSixOption = "A";
+    let state = null;
+    let currentHole = freshHoleDraft();
+    let editDraft = null;
+    let editingHoleId = null;
+
+    const $ = (id) => document.getElementById(id);
+
+    function freshHoleDraft() {
+      return { betType: "regular", partnerIds: [], scores: {} };
+    }
+
+    function zeroPayouts(playerIds) {
+      return Object.fromEntries(playerIds.map((id) => [id, 0]));
+    }
+
+    function addPayouts(first, second) {
+      const ids = new Set([...Object.keys(first), ...Object.keys(second)]);
+      const combined = {};
+      ids.forEach((id) => combined[id] = (Number(first[id]) || 0) + (Number(second[id]) || 0));
+      return combined;
+    }
+
+    function money(value) {
+      const fixed = Math.abs(value) < 0.005 ? 0 : value;
+      const sign = fixed > 0 ? "+" : fixed < 0 ? "-" : "";
+      return sign + "$" + Math.abs(fixed).toFixed(2);
+    }
+
+    function uid() {
+      return "p_" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+    }
+
+    function saveState() {
+      if (state) {
+        state.currentHoleDraft = {
+          betType: currentHole.betType,
+          partnerIds: [...currentHole.partnerIds],
+          scores: { ...currentHole.scores }
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      }
+    }
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        return raw ? JSON.parse(raw) : null;
+      } catch {
+        return null;
+      }
+    }
+
+    function activePlayers() {
+      if (!state) return [];
+      return state.teeOrder
+        .map((id) => state.players.find((p) => p.id === id))
+        .filter((p) => p && p.active);
+    }
+
+    function playerName(id) {
+      const player = state.players.find((p) => p.id === id);
+      return player ? player.name : "Player";
+    }
+
+    function currentWolfId(players = activePlayers(), holeNumber = state.currentHole) {
+      if (!players.length) return null;
+      return players[(holeNumber - 1) % players.length].id;
+    }
+
+    function requiredPartnerCount(activeCount, betType, sixOption) {
+      if (betType !== "regular") return 0;
+      if (activeCount === 4) return 1;
+      if (activeCount === 5) return 1;
+      if (activeCount === 6) return sixOption === "A" ? 2 : 1;
+      return Math.max(0, Math.floor(activeCount / 2) - 1);
+    }
+
+    function teamLabel(playerId, wolfId, partnerIds) {
+      if (playerId === wolfId) return "Wolf";
+      if (partnerIds.includes(playerId)) return "Wolf Team";
+      return "Hunters";
+    }
+
+    function calculateWolfPayouts(hole) {
+      const base = Number(state.baseValue) || 1;
+      const players = hole.activeIds;
+      const wolfTeam = [hole.wolfId, ...hole.partnerIds];
+      const hunters = players.filter((id) => !wolfTeam.includes(id));
+      const payouts = zeroPayouts(players);
+      const wolfBest = Math.min(...wolfTeam.map((id) => Number(hole.scores[id])));
+      const hunterBest = Math.min(...hunters.map((id) => Number(hole.scores[id])));
+
+      if (wolfBest === hunterBest) {
+        return { payouts, result: "Wolf Tie", wolfTeam, hunters };
+      }
+
+      const wolfWon = wolfBest < hunterBest;
+      const activeCount = players.length;
+      const bet = hole.betType;
+
+      if (bet === "regular") {
+        if (activeCount === 4 || (activeCount === 6 && (hole.sixOption || state.sixOption) === "A")) {
+          players.forEach((id) => payouts[id] = wolfTeam.includes(id) === wolfWon ? base : -base);
+        } else {
+          const hunterAmount = base;
+          const teamAmount = hunters.length * hunterAmount / wolfTeam.length;
+          wolfTeam.forEach((id) => payouts[id] = wolfWon ? teamAmount : -teamAmount);
+          hunters.forEach((id) => payouts[id] = wolfWon ? -hunterAmount : hunterAmount);
+        }
+      } else {
+        const multiplier = bet === "blind" ? 2 : bet === "double" ? 3 : 1;
+        const hunterAmount = base * multiplier;
+        const wolfAmount = hunters.length * hunterAmount;
+        payouts[hole.wolfId] = wolfWon ? wolfAmount : -wolfAmount;
+        hunters.forEach((id) => payouts[id] = wolfWon ? -hunterAmount : hunterAmount);
+      }
+
+      return {
+        payouts,
+        result: wolfWon ? "Wolf team wins" : "Hunters win",
+        wolfTeam,
+        hunters
+      };
+    }
+
+    function calculateSkinsPayouts(hole) {
+      const players = hole.activeIds;
+      const payouts = zeroPayouts(players);
+      if (!hole.skinsEnabled) {
+        return { payouts, result: "Skins off", winnerId: null };
+      }
+
+      const skinBase = Number(hole.skinValue) || 1;
+      const bestScore = Math.min(...players.map((id) => Number(hole.scores[id])));
+      const winners = players.filter((id) => Number(hole.scores[id]) === bestScore);
+      if (winners.length !== 1) {
+        return { payouts, result: "Skin Tie", winnerId: null };
+      }
+
+      const winnerId = winners[0];
+      players.forEach((id) => {
+        payouts[id] = id === winnerId ? skinBase * (players.length - 1) : -skinBase;
+      });
+      return { payouts, result: "Skin: " + playerName(winnerId), winnerId };
+    }
+
+    function calculateHole(hole) {
+      const wolf = calculateWolfPayouts(hole);
+      const skins = calculateSkinsPayouts(hole);
+      return {
+        payouts: addPayouts(wolf.payouts, skins.payouts),
+        wolfPayouts: wolf.payouts,
+        skinsPayouts: skins.payouts,
+        result: wolf.result,
+        skinsResult: skins.result,
+        wolfTeam: wolf.wolfTeam,
+        hunters: wolf.hunters
+      };
+    }
+
+    function recalculateBalances() {
+      state.skinsEnabled = Boolean(state.skinsEnabled);
+      state.skinValue = Number(state.skinValue || 1);
+      state.players.forEach((p) => p.balance = 0);
+      state.completedHoles.forEach((hole) => {
+        hole.skinsEnabled = Boolean(hole.skinsEnabled);
+        hole.skinValue = Number(hole.skinValue || state.skinValue || 1);
+        hole.wolfPayouts = hole.wolfPayouts || {};
+        hole.skinsPayouts = hole.skinsPayouts || {};
+        const calc = calculateHole(hole);
+        hole.payouts = calc.payouts;
+        hole.wolfPayouts = calc.wolfPayouts;
+        hole.skinsPayouts = calc.skinsPayouts;
+        hole.result = calc.result;
+        hole.skinsResult = calc.skinsResult;
+        Object.entries(calc.payouts).forEach(([id, amount]) => {
+          const player = state.players.find((p) => p.id === id);
+          if (player) player.balance += amount;
+        });
+      });
+    }
+
+    function showSetup() {
+      $("setupView").classList.remove("hidden");
+      $("gameView").classList.add("hidden");
+      $("ledger").classList.add("hidden");
+      renderSetup();
+    }
+
+    function resetSetupControls() {
+      setupCount = 4;
+      setupSixOption = "A";
+      $("baseValue").value = "1.00";
+      $("skinsToggle").checked = false;
+      $("skinValue").value = "1.00";
+      $("setupMessage").textContent = "";
+    }
+
+    function showGame() {
+      $("setupView").classList.add("hidden");
+      $("gameView").classList.remove("hidden");
+      $("ledger").classList.remove("hidden");
+      renderGame();
+    }
+
+    function renderSetup() {
+      $("countButtons").innerHTML = [4, 5, 6].map((count) =>
+        `<button type="button" class="${count === setupCount ? "selected" : ""}" data-count="${count}">${count}</button>`
+      ).join("");
+      $("sixRuleSetup").classList.toggle("hidden", setupCount !== 6);
+      $("skinValueWrap").classList.toggle("hidden", !$("skinsToggle").checked);
+      document.querySelectorAll("[data-six]").forEach((btn) => btn.classList.toggle("selected", btn.dataset.six === setupSixOption));
+
+      const existing = Array.from($("nameInputs").querySelectorAll("input")).map((input) => input.value);
+      $("nameInputs").innerHTML = "";
+      for (let i = 0; i < setupCount; i++) {
+        const input = document.createElement("input");
+        input.type = "text";
+        input.placeholder = "Player " + (i + 1);
+        input.value = existing[i] || "";
+        $("nameInputs").appendChild(input);
+      }
+    }
+
+    function renderLedger() {
+      const total = state.players.reduce((sum, p) => sum + p.balance, 0);
+      $("zeroStatus").textContent = "Total " + money(total);
+      $("ledgerScroll").innerHTML = state.players.map((p) => {
+        const cls = p.balance > 0 ? "pos" : p.balance < 0 ? "neg" : "zero";
+        const status = p.active ? "" : " · Out";
+        return `<div class="ledger-pill"><b>${escapeHtml(p.name)}</b><span class="${cls}">${money(p.balance)}</span><small>${status}</small></div>`;
+      }).join("");
+    }
+
+    function renderGame() {
+      recalculateBalances();
+      const players = activePlayers();
+      if (players.length < 4) {
+        $("gameMessage").textContent = "Add players until at least 4 are active.";
+      }
+      const wolfId = currentWolfId(players);
+      const partnerNeed = requiredPartnerCount(players.length, currentHole.betType, state.sixOption);
+      currentHole.partnerIds = currentHole.partnerIds.filter((id) => players.some((p) => p.id === id) && id !== wolfId).slice(0, partnerNeed);
+
+      const skinsText = state.skinsEnabled ? " · skins $" + Number(state.skinValue || 1).toFixed(2) : "";
+      $("gameSubhead").textContent = players.length + " active · Wolf $" + Number(state.baseValue).toFixed(2) + skinsText;
+      $("holeTitle").textContent = "Hole " + state.currentHole;
+      $("wolfTag").textContent = "Wolf: " + playerName(wolfId);
+      renderLedger();
+      renderBetButtons("betButtons", currentHole);
+      renderPartnerButtons("partnerButtons", currentHole, players, wolfId, partnerNeed);
+      $("partnersSection").classList.toggle("hidden", partnerNeed === 0);
+      $("partnersTitle").textContent = partnerNeed === 1 ? "Choose 1 Partner" : "Choose 2 Partners";
+      renderScoreList("scoreList", currentHole, players, wolfId);
+    }
+
+    function renderBetButtons(containerId, draft) {
+      $(containerId).innerHTML = betTypes.map((bet) =>
+        `<button type="button" class="${draft.betType === bet.id ? "selected" : ""}" data-bet="${bet.id}">${bet.label}</button>`
+      ).join("");
+    }
+
+    function renderPartnerButtons(containerId, draft, players, wolfId, partnerNeed) {
+      $(containerId).innerHTML = players
+        .filter((p) => p.id !== wolfId)
+        .map((p) => `<button type="button" class="${draft.partnerIds.includes(p.id) ? "selected" : ""}" data-partner="${p.id}">${escapeHtml(p.name)}</button>`)
+        .join("");
+      $(containerId).dataset.partnerNeed = String(partnerNeed);
+    }
+
+    function renderScoreList(containerId, draft, players, wolfId) {
+      $(containerId).innerHTML = players.map((p) => {
+        const selected = draft.scores[p.id];
+        const label = teamLabel(p.id, wolfId, draft.partnerIds);
+        return `
+          <div class="score-card">
+            <div class="score-name"><span>${escapeHtml(p.name)}</span><span class="team-label">${label}</span></div>
+            <div class="score-buttons" data-score-player="${p.id}">
+              ${scoreValues.map((score) => {
+                const cls = score < 0 ? "under" : score === 0 ? "par" : "over";
+                const text = score > 0 ? "+" + score : String(score);
+                return `<button type="button" class="${cls} ${Number(selected) === score ? "selected" : ""}" data-score="${score}">${text}</button>`;
+              }).join("")}
+            </div>
+          </div>`;
+      }).join("");
+    }
+
+    function startGame() {
+      const names = Array.from($("nameInputs").querySelectorAll("input"))
+        .map((input, index) => input.value.trim() || "Player " + (index + 1));
+      const base = Math.max(0, Number($("baseValue").value) || 1);
+      const skinsEnabled = $("skinsToggle").checked;
+      const skinValue = Math.max(0, Number($("skinValue").value) || 1);
+      const players = names.map((name) => ({ id: uid(), name, balance: 0, active: true }));
+      const shuffled = [...players].sort(() => Math.random() - 0.5);
+      state = {
+        version: 1,
+        baseValue: base,
+        skinsEnabled,
+        skinValue,
+        sixOption: setupSixOption,
+        players,
+        teeOrder: shuffled.map((p) => p.id),
+        currentHole: 1,
+        currentHoleDraft: freshHoleDraft(),
+        completedHoles: []
+      };
+      currentHole = freshHoleDraft();
+      saveState();
+      showGame();
+    }
+
+    function submitHole() {
+      const players = activePlayers();
+      const wolfId = currentWolfId(players);
+      if (players.length < 4 || players.length > 6) {
+        $("gameMessage").textContent = "Wolf needs 4, 5, or 6 active players.";
+        return;
+      }
+      const partnerNeed = requiredPartnerCount(players.length, currentHole.betType, state.sixOption);
+      if (currentHole.partnerIds.length !== partnerNeed) {
+        $("gameMessage").textContent = partnerNeed ? "Choose the Wolf team partner(s)." : "";
+        return;
+      }
+      const missing = players.some((p) => currentHole.scores[p.id] === undefined);
+      if (missing) {
+        $("gameMessage").textContent = "Pick a score for every active player.";
+        return;
+      }
+
+      const hole = {
+        id: "h_" + state.currentHole + "_" + Date.now(),
+        number: state.currentHole,
+        activeIds: players.map((p) => p.id),
+        wolfId,
+        betType: currentHole.betType,
+        partnerIds: [...currentHole.partnerIds],
+        scores: Object.fromEntries(players.map((p) => [p.id, Number(currentHole.scores[p.id])])),
+        sixOption: state.sixOption,
+        skinsEnabled: Boolean(state.skinsEnabled),
+        skinValue: Number(state.skinValue || 1),
+        payouts: {},
+        wolfPayouts: {},
+        skinsPayouts: {},
+        result: ""
+      };
+      const calc = calculateHole(hole);
+      hole.payouts = calc.payouts;
+      hole.wolfPayouts = calc.wolfPayouts;
+      hole.skinsPayouts = calc.skinsPayouts;
+      hole.result = calc.result;
+      hole.skinsResult = calc.skinsResult;
+      state.completedHoles.push(hole);
+      state.currentHole += 1;
+      recalculateBalances();
+      currentHole = freshHoleDraft();
+      saveState();
+      $("gameMessage").textContent = hole.result + (state.skinsEnabled ? " · " + hole.skinsResult : "") + " on Hole " + hole.number + ".";
+      renderGame();
+    }
+
+    function renderRoster() {
+      $("rosterList").innerHTML = state.players.map((p) => `
+        <div class="roster-row">
+          <div>
+            <strong>${escapeHtml(p.name)}</strong>
+            <small>${p.active ? "Active" : "Removed"} · ${money(p.balance)}</small>
+          </div>
+          ${p.active ? `<button class="mini danger" type="button" data-remove="${p.id}">Remove</button>` : `<button class="mini ghost" type="button" data-restore="${p.id}">Restore</button>`}
+        </div>
+      `).join("");
+    }
+
+    function addPlayer() {
+      const name = $("newPlayerName").value.trim();
+      if (!name) {
+        $("rosterMessage").textContent = "Enter a name first.";
+        return;
+      }
+      if (activePlayers().length >= 6) {
+        $("rosterMessage").textContent = "Wolf supports up to 6 active players.";
+        return;
+      }
+      const player = { id: uid(), name, balance: 0, active: true };
+      state.players.push(player);
+      state.teeOrder.push(player.id);
+      $("newPlayerName").value = "";
+      $("rosterMessage").textContent = name + " added at $0.00.";
+      saveState();
+      renderRoster();
+      renderGame();
+    }
+
+    function setPlayerActive(id, active) {
+      const activeCount = activePlayers().length;
+      if (!active && activeCount <= 4) {
+        $("rosterMessage").textContent = "Keep at least 4 active players.";
+        return;
+      }
+      if (active && activeCount >= 6) {
+        $("rosterMessage").textContent = "Wolf supports up to 6 active players.";
+        return;
+      }
+      const player = state.players.find((p) => p.id === id);
+      if (player) player.active = active;
+      currentHole.partnerIds = currentHole.partnerIds.filter((pid) => activePlayers().some((p) => p.id === pid));
+      saveState();
+      renderRoster();
+      renderGame();
+    }
+
+    function renderHistory() {
+      if (!state.completedHoles.length) {
+        $("historyList").innerHTML = "<p class='message'>No completed holes yet.</p>";
+        return;
+      }
+      $("historyList").innerHTML = state.completedHoles.map((hole) => {
+        const bet = betTypes.find((b) => b.id === hole.betType);
+        const wolfPayouts = hole.wolfPayouts || zeroPayouts(hole.activeIds);
+        const skinsPayouts = hole.skinsPayouts || zeroPayouts(hole.activeIds);
+        const rows = hole.activeIds.map((id) => {
+          const total = (Number(wolfPayouts[id]) || 0) + (Number(skinsPayouts[id]) || 0);
+          return `
+            <tr>
+              <td>${escapeHtml(playerName(id))}</td>
+              <td>${scoreText(hole.scores[id])}</td>
+              <td class="${moneyClass(wolfPayouts[id])}">${money(wolfPayouts[id])}</td>
+              <td class="${moneyClass(skinsPayouts[id])}">${money(skinsPayouts[id])}</td>
+              <td class="${moneyClass(total)}">${money(total)}</td>
+            </tr>`;
+        }).join("");
+        const summary = hole.result + " / " + (hole.skinsResult || "Skins off") + " · " + bet.label;
+        return `
+          <div class="history-card">
+            <div class="history-row">
+              <div>
+                <strong>Hole ${hole.number}</strong>
+                <small>${escapeHtml(summary)}</small>
+              </div>
+              <button class="mini" type="button" data-edit-hole="${hole.id}">Edit</button>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Player</th>
+                  <th>Score</th>
+                  <th>Wolf Bet</th>
+                  <th>Skins Bet</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>`;
+      }).join("");
+    }
+
+    function openEditHole(holeId) {
+      const hole = state.completedHoles.find((h) => h.id === holeId);
+      if (!hole) return;
+      editingHoleId = holeId;
+      editDraft = {
+        betType: hole.betType,
+        partnerIds: [...hole.partnerIds],
+        scores: { ...hole.scores }
+      };
+      $("editTitle").textContent = "Edit Hole " + hole.number;
+      renderEditHole();
+      $("historyModal").close();
+      $("editModal").showModal();
+    }
+
+    function renderEditHole() {
+      const hole = state.completedHoles.find((h) => h.id === editingHoleId);
+      const players = hole.activeIds.map((id) => state.players.find((p) => p.id === id)).filter(Boolean);
+      const partnerNeed = requiredPartnerCount(players.length, editDraft.betType, hole.sixOption || state.sixOption);
+      editDraft.partnerIds = editDraft.partnerIds.filter((id) => id !== hole.wolfId && hole.activeIds.includes(id)).slice(0, partnerNeed);
+      renderBetButtons("editBetButtons", editDraft);
+      renderPartnerButtons("editPartnerButtons", editDraft, players, hole.wolfId, partnerNeed);
+      $("editPartnersSection").classList.toggle("hidden", partnerNeed === 0);
+      $("editPartnersTitle").textContent = partnerNeed === 1 ? "Choose 1 Partner" : "Choose 2 Partners";
+      renderScoreList("editScoreList", editDraft, players, hole.wolfId);
+    }
+
+    function saveEditHole() {
+      const hole = state.completedHoles.find((h) => h.id === editingHoleId);
+      if (!hole) return;
+      const partnerNeed = requiredPartnerCount(hole.activeIds.length, editDraft.betType, hole.sixOption || state.sixOption);
+      if (editDraft.partnerIds.length !== partnerNeed) {
+        $("editMessage").textContent = "Choose the Wolf team partner(s).";
+        return;
+      }
+      const missing = hole.activeIds.some((id) => editDraft.scores[id] === undefined);
+      if (missing) {
+        $("editMessage").textContent = "Pick a score for every player on that hole.";
+        return;
+      }
+      hole.betType = editDraft.betType;
+      hole.partnerIds = [...editDraft.partnerIds];
+      hole.scores = Object.fromEntries(hole.activeIds.map((id) => [id, Number(editDraft.scores[id])]));
+      recalculateBalances();
+      saveState();
+      $("editModal").close();
+      renderGame();
+    }
+
+    function scoreText(score) {
+      const value = Number(score);
+      return value > 0 ? "+" + value : String(value);
+    }
+
+    function moneyClass(value) {
+      return value > 0 ? "pos" : value < 0 ? "neg" : "zero";
+    }
+
+    function resetApp() {
+      if (!confirm("Reset and clear this Wolf match?")) return;
+      localStorage.removeItem(STORAGE_KEY);
+      state = null;
+      currentHole = freshHoleDraft();
+      resetSetupControls();
+      $("settingsModal").close();
+      showSetup();
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;"
+      }[char]));
+    }
+
+    $("countButtons").addEventListener("click", (event) => {
+      const count = Number(event.target.dataset.count);
+      if (!count) return;
+      setupCount = count;
+      renderSetup();
+    });
+
+    $("sixRuleSetup").addEventListener("click", (event) => {
+      if (!event.target.dataset.six) return;
+      setupSixOption = event.target.dataset.six;
+      renderSetup();
+    });
+
+    $("skinsToggle").addEventListener("change", renderSetup);
+
+    $("startBtn").addEventListener("click", startGame);
+    $("submitBtn").addEventListener("click", submitHole);
+    $("rosterBtn").addEventListener("click", () => { renderRoster(); $("rosterModal").showModal(); });
+    $("historyBtn").addEventListener("click", () => { renderHistory(); $("historyModal").showModal(); });
+    $("settingsBtn").addEventListener("click", () => $("settingsModal").showModal());
+    $("addPlayerBtn").addEventListener("click", addPlayer);
+    $("saveEditBtn").addEventListener("click", saveEditHole);
+    $("resetBtn").addEventListener("click", resetApp);
+
+    document.addEventListener("click", (event) => {
+      const closeId = event.target.dataset.close;
+      if (closeId) $(closeId).close();
+
+      if (event.target.dataset.remove) setPlayerActive(event.target.dataset.remove, false);
+      if (event.target.dataset.restore) setPlayerActive(event.target.dataset.restore, true);
+      if (event.target.dataset.editHole) openEditHole(event.target.dataset.editHole);
+    });
+
+    $("betButtons").addEventListener("click", (event) => {
+      if (!event.target.dataset.bet) return;
+      currentHole.betType = event.target.dataset.bet;
+      currentHole.partnerIds = [];
+      $("gameMessage").textContent = "";
+      saveState();
+      renderGame();
+    });
+
+    $("partnerButtons").addEventListener("click", (event) => {
+      const id = event.target.dataset.partner;
+      if (!id) return;
+      const need = Number($("partnerButtons").dataset.partnerNeed);
+      if (currentHole.partnerIds.includes(id)) {
+        currentHole.partnerIds = currentHole.partnerIds.filter((pid) => pid !== id);
+      } else if (currentHole.partnerIds.length < need) {
+        currentHole.partnerIds.push(id);
+      } else {
+        currentHole.partnerIds = [...currentHole.partnerIds.slice(1), id];
+      }
+      saveState();
+      renderGame();
+    });
+
+    $("scoreList").addEventListener("click", (event) => {
+      const score = event.target.dataset.score;
+      if (score === undefined) return;
+      const playerId = event.target.closest("[data-score-player]").dataset.scorePlayer;
+      currentHole.scores[playerId] = Number(score);
+      saveState();
+      renderGame();
+    });
+
+    $("editBetButtons").addEventListener("click", (event) => {
+      if (!event.target.dataset.bet) return;
+      editDraft.betType = event.target.dataset.bet;
+      editDraft.partnerIds = [];
+      $("editMessage").textContent = "";
+      renderEditHole();
+    });
+
+    $("editPartnerButtons").addEventListener("click", (event) => {
+      const id = event.target.dataset.partner;
+      if (!id) return;
+      const need = Number($("editPartnerButtons").dataset.partnerNeed);
+      if (editDraft.partnerIds.includes(id)) {
+        editDraft.partnerIds = editDraft.partnerIds.filter((pid) => pid !== id);
+      } else if (editDraft.partnerIds.length < need) {
+        editDraft.partnerIds.push(id);
+      } else {
+        editDraft.partnerIds = [...editDraft.partnerIds.slice(1), id];
+      }
+      renderEditHole();
+    });
+
+    $("editScoreList").addEventListener("click", (event) => {
+      const score = event.target.dataset.score;
+      if (score === undefined) return;
+      const playerId = event.target.closest("[data-score-player]").dataset.scorePlayer;
+      editDraft.scores[playerId] = Number(score);
+      renderEditHole();
+    });
+
+    const backup = loadState();
+    if (backup && backup.players && backup.completedHoles) {
+      state = backup;
+      currentHole = state.currentHoleDraft || freshHoleDraft();
+      recalculateBalances();
+      showGame();
+    } else {
+      showSetup();
+    }
+  </script>
+</body>
+</html>
