@@ -49,6 +49,8 @@
     button:active { transform: translateY(1px); }
 
     input {
+      position: relative;
+      z-index: 1;
       width: 100%;
       min-height: 54px;
       border: 2px solid var(--line);
@@ -57,6 +59,16 @@
       background: #07090b;
       color: var(--text);
       font-size: 18px;
+      touch-action: manipulation;
+      -webkit-user-select: text;
+      user-select: text;
+    }
+
+    input:focus,
+    input:focus-visible {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 3px rgba(245, 211, 79, .22);
+      outline: none;
     }
 
     .app {
@@ -491,7 +503,7 @@
 
       <div class="section">
         <h2>Dollar Value Per Point For Wolf</h2>
-        <input id="baseValue" type="number" inputmode="decimal" min="0" step="0.25" value="1.00">
+        <input id="baseValue" type="number" inputmode="decimal" pattern="[0-9]*" min="0" step="0.25" value="1.00">
       </div>
 
       <div class="section">
@@ -503,7 +515,7 @@
 
       <div id="skinValueWrap" class="section hidden">
         <h2>Dollar Value Per Skin</h2>
-        <input id="skinValue" type="number" inputmode="decimal" min="0" step="0.25" value="1.00">
+        <input id="skinValue" type="number" inputmode="decimal" pattern="[0-9]*" min="0" step="0.25" value="1.00">
       </div>
 
       <div class="section">
@@ -515,7 +527,7 @@
 
       <div id="greenieValueWrap" class="section hidden">
         <h2>Dollar Value Per Greenie</h2>
-        <input id="greenieValue" type="number" inputmode="decimal" min="0" step="0.25" value="1.00">
+        <input id="greenieValue" type="number" inputmode="decimal" pattern="[0-9]*" min="0" step="0.25" value="1.00">
       </div>
 
       <div id="sixRuleSetup" class="section hidden">
