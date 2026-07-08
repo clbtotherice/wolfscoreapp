@@ -211,6 +211,17 @@
       border: 1px solid var(--line);
     }
 
+    .secondary-start {
+      width: 100%;
+      min-height: 58px;
+      margin-top: 10px;
+      border: 2px solid var(--line);
+      background: #11161a;
+      color: var(--text);
+      font-size: 18px;
+      font-weight: 900;
+    }
+
     .ledger {
       position: fixed;
       z-index: 20;
@@ -610,6 +621,7 @@
       </div>
 
       <button id="startBtn" class="primary" type="button">Shuffle &amp; Start Game</button>
+      <button id="startNoShuffleBtn" class="secondary-start" type="button">Start Without Shuffling</button>
       <p id="setupMessage" class="message"></p>
     </section>
 
@@ -1220,7 +1232,7 @@
       return scores.reduce((sum, score) => sum + (score === "" ? 0 : Number(score)), 0);
     }
 
-    function startGame() {
+    function startGame(shuffleOrder = true) {
       const names = Array.from($("nameInputs").querySelectorAll("input"))
         .map((input, index) => input.value.trim() || "Player " + (index + 1));
       const base = Math.max(0, Number($("baseValue").value) || 1);
@@ -1229,7 +1241,7 @@
       const greeniesEnabled = $("greeniesToggle").checked;
       const greenieValue = Math.max(0, Number($("greenieValue").value) || 1);
       const players = names.map((name) => ({ id: uid(), name, balance: 0, active: true }));
-      const shuffled = [...players].sort(() => Math.random() - 0.5);
+      const teeOrder = shuffleOrder ? [...players].sort(() => Math.random() - 0.5) : players;
       state = {
         version: 1,
         baseValue: base,
@@ -1239,7 +1251,7 @@
         greenieValue,
         sixOption: setupSixOption,
         players,
-        teeOrder: shuffled.map((p) => p.id),
+        teeOrder: teeOrder.map((p) => p.id),
         currentHole: 1,
         currentHoleDraft: freshHoleDraft(),
         completedHoles: []
@@ -1520,7 +1532,8 @@
     $("skinsToggle").addEventListener("change", renderSetup);
     $("greeniesToggle").addEventListener("change", renderSetup);
 
-    $("startBtn").addEventListener("click", startGame);
+    $("startBtn").addEventListener("click", () => startGame(true));
+    $("startNoShuffleBtn").addEventListener("click", () => startGame(false));
     $("submitBtn").addEventListener("click", submitHole);
     $("scorecardBtn").addEventListener("click", showScorecard);
     $("backToScoringTopBtn").addEventListener("click", showGame);
